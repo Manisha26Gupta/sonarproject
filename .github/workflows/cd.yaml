@@ -59,7 +59,16 @@ jobs:
           version: "latest"
 
       - name: Update kubeconfig for EKS
-        run: aws eks update-kubeconfig --name "${EKS_CLUSTER}" --region "${AWS_REGION}"
+        run: |
+          aws eks update-kubeconfig --name "${EKS_CLUSTER}" --region "${AWS_REGION}"
+          kubectl config current-context
+          kubectl cluster-info
+      
+      - name: RBAC sanity
+        run: |
+          kubectl get ns "${K8S_NAMESPACE}" || true
+          kubectl auth can-i get pods -n "${K8S_NAMESPACE}" || true
+          kubectl auth can-i apply -n "${K8S_NAMESPACE}" || true
 
       # ---- (Idempotent) apply base manifests from repo ----
       - name: Apply base manifests
