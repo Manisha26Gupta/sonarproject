@@ -61,13 +61,13 @@ jobs:
       - name: Apply base manifests
         run: |
           kubectl apply -f k8s/namespace.yml || true
-          kubectl apply -f k8s/secret-postgres.yml
-          kubectl apply -f k8s/postgres-statefulset.yml
-          kubectl apply -f k8s/postgres-service.yml
-          kubectl apply -f k8s/configmap-app.yml
-          kubectl apply -f k8s/app-service.yml
+          kubectl apply -f k8s/secret-postgres.yaml
+          kubectl apply -f k8s/postgres-statefulset.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          kubectl apply -f k8s/configmap-app.yaml
+          kubectl apply -f k8s/app-service.yaml
           # If you’re using ingress-nginx/ALB and have an Ingress manifest:
-          kubectl apply -f k8s/ingress.yml || true
+          kubectl apply -f k8s/ingress.yaml || true
 
       # ---- Decide which image tag to deploy ----
       - name: Compute image tag
