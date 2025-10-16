@@ -44,8 +44,8 @@ jobs:
       - name: Build & Push (subdir)
         uses: docker/build-push-action@v6
         with:
-          context: ./sample-project
-          file: ./sample-project/Dockerfile
+          context: ./sampleproject
+          file: ./sampleproject/Dockerfile
           push: true
           tags: |
             docker.io/manisha26gupta/sampleproject:${{ github.sha }}
