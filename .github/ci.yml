@@ -1,0 +1,39 @@
+name: Build then Push (Docker Hub)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+env:
+  IMAGE_NAME: your-dockerhub-username/sample-project  
+  IMAGE_TAG: latest
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set image tag
+        id: vars
+        run: |
+          # use latest + commit SHA
+          echo "TAG_SHA=${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "TAG_LATEST=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+
+      - name: Build image (single-arch)
+        run: |
+          docker build -t ${{ steps.vars.outputs.TAG_LATEST }} -t ${{ steps.vars.outputs.TAG_SHA }} .
+
+      - name: Push image
+        run: |
+          docker push ${{ steps.vars.outputs.TAG_LATEST }}
+          docker push ${{ steps.vars.outputs.TAG_SHA }}
