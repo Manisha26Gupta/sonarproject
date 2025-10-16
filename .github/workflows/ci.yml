@@ -38,18 +38,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set image tag
-        id: vars
-        run: |
-          # use latest + commit SHA
-          echo "TAG_SHA=${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-          echo "TAG_LATEST=${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build image (single-arch)
-        run: |
-          docker build -t ${{ steps.vars.outputs.TAG_LATEST }} -t ${{ steps.vars.outputs.TAG_SHA }} .
-
-      - name: Push image
-        run: |
-          docker push ${{ steps.vars.outputs.TAG_LATEST }}
-          docker push ${{ steps.vars.outputs.TAG_SHA }}
+      - name: Build & Push (subdir)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./sample-project
+          file: ./sample-project/Dockerfile
+          push: true
+          tags: |
+            docker.io/manisha26gupta/sample-project:${{ github.sha }}
+            docker.io/manisha26gupta/sample-project:latest
