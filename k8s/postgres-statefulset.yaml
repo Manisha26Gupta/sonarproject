@@ -39,12 +39,15 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 3
-  volumeClaimTemplates:
-    - metadata:
-        name: pgdata
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: gp2
-        resources:
-          requests:
-            storage: 2Gi
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+  # volumeClaimTemplates:
+  #   - metadata:
+  #       name: pgdata
+  #       emptyDir: {}   
+  #     spec:
+  #       accessModes: ["ReadWriteOnce"]
+  #       resources:
+  #         requests:
+  #           storage: 2Gi
