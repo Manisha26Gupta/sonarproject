@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  IMAGE_NAME: manisha26gupta/sample-project   # <-- change this
+  IMAGE_NAME: manisha26gupta/sampleproject   # <-- change this
   IMAGE_TAG: latest
 
 jobs:
@@ -48,5 +48,5 @@ jobs:
           file: ./sample-project/Dockerfile
           push: true
           tags: |
-            docker.io/manisha26gupta/sample-project:${{ github.sha }}
-            docker.io/manisha26gupta/sample-project:latest
+            docker.io/manisha26gupta/sampleproject:${{ github.sha }}
+            docker.io/manisha26gupta/sampleproject:latest
