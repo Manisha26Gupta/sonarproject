@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: sample
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: pg-secret
+          ports:
+            - containerPort: 5432
+              name: pg
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready","-U","user","-d","postgres","-h","localhost","-p","5432"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready","-U","user","-d","postgres","-h","localhost","-p","5432"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

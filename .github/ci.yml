@@ -1,0 +1,73 @@
+name: CI — Test, Build & Push to ECR
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "sampleproject/**"
+      - ".github/workflows/ci-build-and-push.yml"
+      - "k8s/**"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "sampleproject/**"
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: us-east-1          # change if needed
+  ECR_REPO: sonartest/javasample         # existing or will be created separately
+
+jobs:
+  test_build_push:
+    name: Test → Build → Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- TEST (Gradle in subdir) ----------
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Run unit tests
+        working-directory: sampleproject
+        run: ./gradlew clean test --no-daemon --stacktrace
+
+      # ---------- AUTH to AWS via OIDC ----------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::386783748505:role/sample-project-ecr-gha   # <-- replace
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ---------- BUILD & PUSH (Dockerfile in subdir) ----------
+      - name: Compute image coordinates
+        id: vars
+        run: |
+          echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: ./sampleproject
+          file: ./sampleproject/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.vars.outputs.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ steps.vars.outputs.TAG }}
+            ${{ steps.vars.outputs.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:latest
