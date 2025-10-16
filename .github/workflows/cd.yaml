@@ -1,0 +1,101 @@
+name: CD — Deploy to EKS (Docker Hub)
+
+on:
+  # Auto-deploy when k8s manifests change on main
+  push:
+    branches: [ main ]
+    paths:
+      - "k8s/**"
+      - ".github/workflows/cd-deploy-eks.yml"
+  # Manual trigger to deploy any specific image tag
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag to deploy (defaults to short SHA of this run or 'latest')"
+        required: false
+        type: string
+      fallback_latest:
+        description: "If no tag provided, use 'latest' instead of short SHA?"
+        required: false
+        default: "false"
+        type: choice
+        options: [ "false", "true" ]
+
+env:
+  AWS_REGION: us-east-1             # <-- your EKS region
+  EKS_CLUSTER: exciting-blues-crab   # <-- your EKS cluster name
+  K8S_NAMESPACE: sample                 # <-- target namespace
+  K8S_DEPLOYMENT: sample-app            # <-- deployment name
+  IMAGE_REPO: manisha26gupta/sampleproject   # <-- Docker Hub repo (no registry prefix)
+
+jobs:
+  deploy:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- AWS auth using access keys (NO OIDC) ----
+      # Add these in GitHub → Settings → Secrets and variables → Actions:
+      #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name "${EKS_CLUSTER}" --region "${AWS_REGION}"
+
+      # ---- (Idempotent) apply base manifests from repo ----
+      - name: Apply base manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml || true
+          kubectl apply -f k8s/secret-postgres.yaml
+          kubectl apply -f k8s/postgres-statefulset.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          kubectl apply -f k8s/configmap-app.yaml
+          kubectl apply -f k8s/app-service.yaml
+          # If you’re using ingress-nginx/ALB and have an Ingress manifest:
+          kubectl apply -f k8s/ingress.yaml || true
+
+      # ---- Decide which image tag to deploy ----
+      - name: Compute image tag
+        id: vars
+        shell: bash
+        run: |
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            if [[ "${{ github.event.inputs.fallback_latest }}" == "true" ]]; then
+              TAG="latest"
+            else
+              TAG="${GITHUB_SHA::7}"
+            fi
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Using tag: $TAG"
+
+      # ---- Rollout Deployment to the new Docker Hub image tag ----
+      - name: Set image & rollout
+        env:
+          TAG: ${{ steps.vars.outputs.TAG }}
+        run: |
+          kubectl -n "${K8S_NAMESPACE}" set image deploy/${K8S_DEPLOYMENT} \
+            ${K8S_DEPLOYMENT}=docker.io/${IMAGE_REPO}:${TAG} --record
+          kubectl -n "${K8S_NAMESPACE}" rollout status deploy/${K8S_DEPLOYMENT} --timeout=300s
+
+      # ---- Quick diagnostics ----
+      - name: Show resources
+        run: |
+          kubectl -n "${K8S_NAMESPACE}" get deploy/${K8S_DEPLOYMENT} -o wide
+          kubectl -n "${K8S_NAMESPACE}" get pods -o wide
+          kubectl -n "${K8S_NAMESPACE}" get svc,ingress -o wide
