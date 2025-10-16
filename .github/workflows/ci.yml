@@ -1,8 +1,10 @@
 name: Build then Push (Docker Hub)
 
 on:
-  push:
-    branches: [ "main" ]
+  ppush:
+    branches: [ main ]
+    paths:
+      - "sampleproject/**"
   workflow_dispatch: {}
 
 env:
