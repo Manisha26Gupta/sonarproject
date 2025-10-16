@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  IMAGE_NAME: your-dockerhub-username/sample-project   # <-- change this
+  IMAGE_NAME: manisha26gupta/sample-project   # <-- change this
   IMAGE_TAG: latest
 
 jobs:
